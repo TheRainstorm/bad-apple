@@ -1,0 +1,9 @@
+Video_Convert/videos/*
+Video_Convert/temp/*
+Video_Convert/C++/*.txt
+.vscode/*
+*.txt
+*.exe
+!*.md
+!Video_Convert/videos/will_play/
+!Video_Convert/videos/BadApple384_512.mp4
