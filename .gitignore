@@ -1,7 +1,7 @@
-Video_Convert/videos/*
-Video_Convert/temp/*
-Video_Convert/C++/*.txt
-.vscode/*
+Video_Convert/videos/
+Video_Convert/temp/
+.vscode/
+*.pyc
 *.txt
 *.exe
 !*.md
