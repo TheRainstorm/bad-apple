@@ -2,6 +2,7 @@ import cv2
 import os
 from multiprocessing import Process, Queue, Pipe
 import heapq
+import threading as td
 
 def read_video(frame_queue, video_path, window_height, pipe_send): #producer
     _, video_fullname = os.path.split(video_path)
@@ -27,14 +28,10 @@ def read_video(frame_queue, video_path, window_height, pipe_send): #producer
         cnt += 1
         success, frame = cap.read()
         if success:
-            # convert to gray, dtype=uint8,maxium=255
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            # resize
-            gray = cv2.resize(gray, tuple(size))
-            
             '''put to frame queue
             '''
-            frame_queue.put((cnt, gray))
+            frame = cv2.resize(frame, size)
+            frame_queue.put((cnt, frame))
         else:
             break
     cap.release()
@@ -46,17 +43,68 @@ def convert_frame(frame_queue, cvt_frame_queue):
         cnt, frame = frame_queue.get()
         if frame is None:
             break
-
+        
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frame = frame/256*len(char_set) #256 rather than 255, make it's maxium is L-1
         cvt_frame = ''
         for i in range(frame.shape[0]):
             for j in range(frame.shape[1]):
                 cvt_frame += char_set[int(frame[i][j])]
             cvt_frame += '\n'
+        
+        cvt_frame_queue.put((cnt, cvt_frame))
 
+def convert_frame_clr(frame_queue, cvt_frame_queue):
+    ''' !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'''
+    char_set = r" `'^*-+x<=oa!1|?0%$@#"
+
+    # 16-color table
+    clr16 = [(0, 0, 0), (128, 0, 0), (0, 128, 0), (128, 128, 0), (0, 0, 128), (128, 0, 128), (0, 128, 128), (192, 192, 192),\
+    (128, 128, 128), (255, 0, 0), (0, 255, 0), (255, 255, 0), (0, 0, 255), (255, 0, 255), (0, 255, 255), (255, 255, 255)]
+
+    while True:
+        cnt, frame = frame_queue.get()
+        if frame is None:
+            break
+        
+        cvt_frame = ''
+        for i in range(frame.shape[0]):
+            line_char = ''
+            line_clr = ''
+            for j in range(frame.shape[1]):
+                # get the RGB component
+                R, G, B = frame[i][j]
+                #RGB convert to gray
+                gray = int(0.299*R + 0.587*G + 0.114*B)
+
+                #find the nearest clr
+                # delta_list = [(R-clr[0])**2 + (G-clr[0])**2 + (B-clr[0])**2 for clr in clr16]
+                # clr_num = delta_list.index(min(delta_list))
+                clr = (int(R/256*2)*255, int(G/256*2)*255, int(B/256*2)*255)
+                clr_num = clr16.index(clr)
+                line_clr += chr(32+clr_num) #add 32 so that it is a printable charater
+
+                # get the character in g_char_set
+                idx = int(gray/256*len(char_set))
+                line_char += char_set[idx]
+                
+            cvt_frame += line_char + line_clr + '\n'
         cvt_frame_queue.put((cnt, cvt_frame))
 
 def write_file(cvt_frame_queue, pipe_recv, cvt_num):
+    def push_heap(cvt_frame_queue, heap, lock):
+        while True:
+            cnt, cvt_frame = cvt_frame_queue.get()
+            if cvt_frame is None:
+                exit(0)
+            with lock:
+                heapq.heappush(heap, (cnt, cvt_frame))
+
+    heap = [] #heap to save cvt_frame (minium heap)
+    lock = td.Lock() # lock of acessing heap
+    td1 = td.Thread(target=push_heap, args=(cvt_frame_queue, heap, lock))
+    td1.start()
+
     '''pipe recv
     '''
     video_name, total_frame, FPS, size = pipe_recv.recv()
@@ -68,7 +116,6 @@ def write_file(cvt_frame_queue, pipe_recv, cvt_num):
         )
 
         internal_cnt = 0
-        heap = []
         while internal_cnt<total_frame: 
             if internal_cnt%100==0:
                 print('\rprogress %d/%d'%(internal_cnt, total_frame))
@@ -78,27 +125,19 @@ def write_file(cvt_frame_queue, pipe_recv, cvt_num):
             # if len(heap)>cvt_num:
             #     print('aaa',len(heap))
             while True:
-                if len(heap)==0 or heap[0][0]!=internal_cnt:
-                    '''cvt frame queue get
-                    '''
-                    # print(cvt_frame_queue.qsize())
-                    for i in range(cvt_num//2+1):
-                        cnt, cvt_frame = cvt_frame_queue.get()
-                        if cvt_frame is None:
-                            exit(0)
-                        
-                        heapq.heappush(heap, (cnt, cvt_frame))
-                else:
-                    cnt, cvt_frame = heapq.heappop(heap)
-                    fp.write(str(cnt)+'\n')
-                    fp.write(cvt_frame)
-                    break
+                with lock:
+                    if len(heap)!=0 and heap[0][0]==internal_cnt:
+                        cnt, cvt_frame = heapq.heappop(heap)
+                        break
+            fp.write(str(cnt)+'\n')
+            fp.write(cvt_frame)
 
 if __name__ == "__main__":
     video_path = 'bad apple.mp4'
     window_height = 44
+    have_color = False
 
-    cvt_num = 16
+    cvt_num = 4
     frame_queue = Queue(cvt_num*2)
     cvt_frame_queue  = Queue(cvt_num*2)
     pipe_send, pipe_recv = Pipe()
@@ -106,7 +145,8 @@ if __name__ == "__main__":
     worker_list = []
     p1 = Process(target=read_video, args=(frame_queue, video_path, window_height, pipe_send))
     for i in range(cvt_num):
-        pc = Process(target=convert_frame, args=(frame_queue, cvt_frame_queue))
+        pc = Process(target=(convert_frame_clr if have_color else convert_frame),\
+                    args=(frame_queue, cvt_frame_queue))
         worker_list.append(pc)
         pc.start()
     c1 = Process(target=write_file, args=(cvt_frame_queue, pipe_recv, cvt_num))
