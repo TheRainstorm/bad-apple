@@ -133,9 +133,9 @@ def write_file(cvt_frame_queue, pipe_recv, cvt_num, have_color):
             fp.write(cvt_frame)
 
 if __name__ == "__main__":
-    # video_path = '../video/bad apple.mp4'
-    video_path = '../video/RWBY-RedRose.flv'
-    window_height = 44
+    # video_path = '../videos/bad apple.mp4'
+    video_path = '../videos/RWBY-RedRose.flv'
+    window_height = 65
     have_color = True
 
     cvt_num = 4

@@ -27,8 +27,7 @@ def convert(video_path, window_height):
             ----HEADER----
             total frame: xxx
             FPS: xxx
-            WIDTH: xxx
-            HEIGHT: xxx
+            resolution: aaxbb
             ---BODY----
             1
             frame

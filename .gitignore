@@ -4,6 +4,9 @@ Video_Convert/temp/
 *.pyc
 *.txt
 *.exe
+*.rar
+record.json
+ffplay.log
 !*.md
 !Video_Convert/videos/will_play/
 !Video_Convert/videos/BadApple384_512.mp4

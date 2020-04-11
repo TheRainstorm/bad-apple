@@ -28,6 +28,8 @@ def main():
 
 
 def func2(L):
+    # global g_List
+    # print(g_List)
     L[0] = 9
 
 def main2():
@@ -39,4 +41,5 @@ def main2():
     print(L)
 
 if __name__ == "__main__":
-    main()
+    g_List = [1, 2, 3]
+    main2()
