@@ -1,7 +1,29 @@
+## 文件说明
+
+- `gallery`: 一些漂亮的截图
+- `images`: 将需要转换的图片放入这里
+- `Print_All.py`: 将images文件夹下所有图片转换输出
+- `Terminal_Image_Reader.py`: 输出彩色字符画，可以上下切换图片
+
 ## 要求
-	python 3.x
-	scipy
-	scikit-image
+
+Print_All.py
+
+```
+python 3.x
+scipy
+scikit-image
+```
+
+Terminal_Image_Reader.py
+
+```
+python 3.x
+numpy
+opencv-python
+curses #标准库，但windows下仍需要安装
+```
+
 ## 用法
 	只需shift+鼠标右键，在当前位置打开power shell，输入python Print_All.py即可
 	将images文件夹下的所有图片转化成字符画输出
